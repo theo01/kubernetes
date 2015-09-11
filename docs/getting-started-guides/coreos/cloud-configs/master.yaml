@@ -21,16 +21,33 @@ hostname: master
 coreos:
   etcd2:
     name: master
-    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
-    advertise-client-urls: http://$private_ipv4:2379,http://$private_ipv4:4001
-    initial-cluster-token: k8s_etcd
-    listen-peer-urls: http://$private_ipv4:2380,http://$private_ipv4:7001
+    advertise-client-urls: http://$private_ipv4:2379
     initial-advertise-peer-urls: http://$private_ipv4:2380
     initial-cluster: master=http://$private_ipv4:2380
+    listen-client-urls: http://$private_ipv4:2379,http://127.0.0.1:2379
+    listen-peer-urls: http://$private_ipv4:2380
     initial-cluster-state: new
+    initial-cluster-token: k8s_etcd
   fleet:
-    metadata: "role=master"
+    etcd_servers: http://127.0.0.1:2379
+    public-ip: $private_ipv4
+    metadata: role=master
+  flannel:
+    etcd_endpoints: http://127.0.0.1:2379
   units:
+    - name: etcd2.service
+      command: start
+    - name: fleet.service
+      command: start
+    - name: flanneld.service
+      command: start
+      drop-ins:
+        - name: 50-network-config.conf
+          content: |
+            [Unit]
+            Requires=etcd2.service
+            [Service]
+            ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{"Network":"$private_ipv4/16", "Backend": {"Type": "vxlan"}}'
     - name: generate-serviceaccount-key.service
       command: start
       content: |
@@ -58,19 +75,20 @@ coreos:
         ExecStart=/opt/bin/setup-network-environment
         RemainAfterExit=yes
         Type=oneshot
-    - name: fleet.service
-      command: start
-    - name: flanneld.service
-      command: start
-      drop-ins:
-        - name: 50-network-config.conf
-          content: |
-            [Unit]
-            Requires=etcd2.service
-            [Service]
-            ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{"Network":"10.244.0.0/16", "Backend": {"Type": "vxlan"}}'
     - name: docker.service
       command: start
+    - name: get-kubectl.service
+      command: start
+      content: |
+        [Unit]
+        Description=Get kubectl client tool
+        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+
+        [Service]
+        ExecStart=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.0.3/bin/linux/amd64/kubectl
+        ExecStart=/usr/bin/chmod +x /opt/bin/kubectl
+        Type=oneshot
+        RemainAfterExit=true
     - name: kube-apiserver.service
       command: start
       content: |
@@ -91,14 +109,15 @@ coreos:
         --service-account-lookup=false \
         --admission-control=NamespaceLifecycle,NamespaceAutoProvision,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota \
         --runtime-config=api/v1 \
+        --cloud-provider=aws \
         --allow-privileged=true \
         --insecure-bind-address=0.0.0.0 \
         --insecure-port=8080 \
         --kubelet-https=true \
-        --secure-port=6443 \
-        --service-cluster-ip-range=10.100.0.0/16 \
+        --secure-port=8080 \
+        --service-cluster-ip-range=$private_ipv4/16 \
         --etcd-servers=http://127.0.0.1:2379 \
-        --public-address-override=${DEFAULT_IPV4} \
+        --bind-address=127.0.0.1 \
         --logtostderr=true
         Restart=always
         RestartSec=10
@@ -132,7 +151,8 @@ coreos:
         [Service]
         ExecStartPre=/usr/bin/curl -L -o /opt/bin/kube-scheduler -z /opt/bin/kube-scheduler https://storage.googleapis.com/kubernetes-release/release/v1.0.3/bin/linux/amd64/kube-scheduler
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-scheduler
-        ExecStart=/opt/bin/kube-scheduler --master=127.0.0.1:8080
+        ExecStart=/opt/bin/kube-scheduler \
+        --master=127.0.0.1:8080
         Restart=always
         RestartSec=10
   update:
