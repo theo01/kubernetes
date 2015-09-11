@@ -17,6 +17,68 @@
 
 # A library of common helper functions for Ubuntus & Debians.
 
+# Detects the AMI to use for trusty (considering the region)
+# Used by CoreOS & Ubuntu
+#
+# Vars set:
+#   AWS_IMAGE
+function detect-trusty-image () {
+  # This is the ubuntu 14.04 image for <region>, amd64, hvm:ebs-ssd
+  # See here: http://cloud-images.ubuntu.com/locator/ec2/ for other images
+  # This will need to be updated from time to time as amis are deprecated
+  if [[ -z "${AWS_IMAGE-}" ]]; then
+    case "${AWS_REGION}" in
+      ap-northeast-1)
+        AWS_IMAGE=ami-93876e93
+        ;;
+
+      ap-southeast-1)
+        AWS_IMAGE=ami-66546234
+        ;;
+
+      eu-central-1)
+        AWS_IMAGE=ami-e2a694ff
+        ;;
+
+      eu-west-1)
+        AWS_IMAGE=ami-d7fd6ea0
+        ;;
+
+      sa-east-1)
+        AWS_IMAGE=ami-a357eebe
+        ;;
+
+      us-east-1)
+        AWS_IMAGE=ami-6089d208
+        ;;
+
+      us-west-1)
+        AWS_IMAGE=ami-cf7d998b
+        ;;
+
+      cn-north-1)
+        AWS_IMAGE=ami-d436a4ed
+        ;;
+
+      us-gov-west-1)
+        AWS_IMAGE=ami-01523322
+        ;;
+
+      ap-southeast-2)
+        AWS_IMAGE=ami-cd4e3ff7
+        ;;
+
+      us-west-2)
+        AWS_IMAGE=ami-3b14370b
+        ;;
+
+      *)
+        echo "Please specify AWS_IMAGE directly (region not recognized)"
+        exit 1
+    esac
+  fi
+}
+
 function detect-minion-image() {
   if [[ -z "${KUBE_MINION_IMAGE=-}" ]]; then
     detect-image
