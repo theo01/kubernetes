@@ -231,8 +231,11 @@ function detect-security-groups {
 #   AWS_IMAGE
 function detect-image () {
 case "${KUBE_OS_DISTRIBUTION}" in
-  trusty|coreos)
+  trusty)
     detect-trusty-image
+    ;;
+  coreos)
+    detect-coreos-image
     ;;
   vivid)
     detect-vivid-image

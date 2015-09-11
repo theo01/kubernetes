@@ -18,14 +18,26 @@
 
 SSH_USER=ubuntu
 
-function detect-minion-image (){
-  if [[ -z "${KUBE_MINION_IMAGE-}" ]]; then
-    KUBE_MINION_IMAGE=$(curl -s -L http://${COREOS_CHANNEL}.release.core-os.net/amd64-usr/current/coreos_production_ami_all.json | python -c "import json,sys;obj=json.load(sys.stdin);print filter(lambda t: t['name']=='${AWS_REGION}', obj['amis'])[0]['hvm']")
+
+function detect-coreos-image () {
+  if [[ -z "${AWS_IMAGE-}" ]]; then
+    AWS_IMAGE=$(curl -s -L http://${COREOS_CHANNEL}.release.core-os.net/amd64-usr/current/coreos_production_ami_all.json | python -c "import json,sys;obj=json.load(sys.stdin);print filter(lambda t: t['name']=='${AWS_REGION}', obj['amis'])[0]['hvm']")
   fi
-  if [[ -z "${KUBE_MINION_IMAGE-}" ]]; then
-    echo "unable to determine KUBE_MINION_IMAGE"
+  if [[ -z "${AWS_IMAGE-}" ]]; then
+    echo "unable to determine AWS_IMAGE"
     exit 2
   fi
+}
+
+function detect-minion-image() {
+  if [[ -z "${KUBE_MINION_IMAGE=-}" ]]; then
+    detect-image
+    KUBE_MINION_IMAGE=$AWS_IMAGE
+  fi
+}
+
+function generate-master-user-data() {
+  cat "${KUBE_ROOT}/cluster/aws/coreos/master"
 }
 
 function generate-minion-user-data() {
