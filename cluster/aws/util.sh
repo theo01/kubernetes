@@ -720,46 +720,7 @@ function kube-up {
   service_ip=$(echo "${octets[*]}" | sed 's/ /./g')
   MASTER_EXTRA_SANS="IP:${service_ip},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.${DNS_DOMAIN},DNS:${MASTER_NAME}"
 
-
-  (
-    # We pipe this to the ami as a startup script in the user-data field.  Requires a compatible ami
-    echo "#! /bin/bash"
-    echo "mkdir -p /var/cache/kubernetes-install"
-    echo "cd /var/cache/kubernetes-install"
-    echo "readonly SALT_MASTER='${MASTER_INTERNAL_IP}'"
-    echo "readonly INSTANCE_PREFIX='${INSTANCE_PREFIX}'"
-    echo "readonly NODE_INSTANCE_PREFIX='${NODE_INSTANCE_PREFIX}'"
-    echo "readonly CLUSTER_IP_RANGE='${CLUSTER_IP_RANGE}'"
-    echo "readonly ALLOCATE_NODE_CIDRS='${ALLOCATE_NODE_CIDRS}'"
-    echo "readonly SERVER_BINARY_TAR_URL='${SERVER_BINARY_TAR_URL}'"
-    echo "readonly SALT_TAR_URL='${SALT_TAR_URL}'"
-    echo "readonly ZONE='${ZONE}'"
-    echo "readonly KUBE_USER='${KUBE_USER}'"
-    echo "readonly KUBE_PASSWORD='${KUBE_PASSWORD}'"
-    echo "readonly SERVICE_CLUSTER_IP_RANGE='${SERVICE_CLUSTER_IP_RANGE}'"
-    echo "readonly ENABLE_CLUSTER_MONITORING='${ENABLE_CLUSTER_MONITORING:-none}'"
-    echo "readonly ENABLE_CLUSTER_LOGGING='${ENABLE_CLUSTER_LOGGING:-false}'"
-    echo "readonly ENABLE_NODE_LOGGING='${ENABLE_NODE_LOGGING:-false}'"
-    echo "readonly LOGGING_DESTINATION='${LOGGING_DESTINATION:-}'"
-    echo "readonly ELASTICSEARCH_LOGGING_REPLICAS='${ELASTICSEARCH_LOGGING_REPLICAS:-}'"
-    echo "readonly ENABLE_CLUSTER_DNS='${ENABLE_CLUSTER_DNS:-false}'"
-    echo "readonly ENABLE_CLUSTER_UI='${ENABLE_CLUSTER_UI:-false}'"
-    echo "readonly DNS_REPLICAS='${DNS_REPLICAS:-}'"
-    echo "readonly DNS_SERVER_IP='${DNS_SERVER_IP:-}'"
-    echo "readonly DNS_DOMAIN='${DNS_DOMAIN:-}'"
-    echo "readonly ADMISSION_CONTROL='${ADMISSION_CONTROL:-}'"
-    echo "readonly MASTER_IP_RANGE='${MASTER_IP_RANGE:-}'"
-    echo "readonly KUBELET_TOKEN='${KUBELET_TOKEN}'"
-    echo "readonly KUBE_PROXY_TOKEN='${KUBE_PROXY_TOKEN}'"
-    echo "readonly DOCKER_STORAGE='${DOCKER_STORAGE:-}'"
-    echo "readonly MASTER_EXTRA_SANS='${MASTER_EXTRA_SANS:-}'"
-    grep -v "^#" "${KUBE_ROOT}/cluster/aws/templates/common.sh"
-    grep -v "^#" "${KUBE_ROOT}/cluster/aws/templates/format-disks.sh"
-    grep -v "^#" "${KUBE_ROOT}/cluster/aws/templates/setup-master-pd.sh"
-    grep -v "^#" "${KUBE_ROOT}/cluster/aws/templates/create-dynamic-salt-files.sh"
-    grep -v "^#" "${KUBE_ROOT}/cluster/aws/templates/download-release.sh"
-    grep -v "^#" "${KUBE_ROOT}/cluster/aws/templates/salt-master.sh"
-  ) > "${KUBE_TEMP}/master-start.sh"
+  generate-master-user-data > "${KUBE_TEMP}/master-user-data"
 
   echo "Starting Master"
   master_id=$($AWS_CMD run-instances \
@@ -772,7 +733,7 @@ function kube-up {
     --security-group-ids ${MASTER_SG_ID} \
     --associate-public-ip-address \
     --block-device-mappings "${MASTER_BLOCK_DEVICE_MAPPINGS}" \
-    --user-data file://${KUBE_TEMP}/master-start.sh | json_val '["Instances"][0]["InstanceId"]')
+    --user-data file://${KUBE_TEMP}/master-user-data | json_val '["Instances"][0]["InstanceId"]')
   add-tag $master_id Name $MASTER_NAME
   add-tag $master_id Role $MASTER_TAG
   add-tag $master_id KubernetesCluster ${CLUSTER_ID}

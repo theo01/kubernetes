@@ -41,28 +41,7 @@ function generate-master-user-data() {
 }
 
 function generate-minion-user-data() {
-  i=$1
-  # TODO(bakins): Is this actually used?
-  MINION_PRIVATE_IP=$INTERNAL_IP_BASE.1${i}
-
-  # this is a bit of a hack. We make all of our "variables" in
-  # our cloud config controlled by env vars from this script
-  cat ${KUBE_ROOT}/cluster/aws/coreos/node.yaml
-  cat <<EOF
-      ENV_TIMESTAMP=$(yaml-quote $(date -u +%Y-%m-%dT%T%z))
-      INSTANCE_PREFIX=$(yaml-quote ${INSTANCE_PREFIX})
-      SERVER_BINARY_TAR_URL=$(yaml-quote ${SERVER_BINARY_TAR_URL})
-      ENABLE_CLUSTER_DNS=$(yaml-quote ${ENABLE_CLUSTER_DNS:-false})
-      DNS_SERVER_IP=$(yaml-quote ${DNS_SERVER_IP:-})
-      DNS_DOMAIN=$(yaml-quote ${DNS_DOMAIN:-})
-      MASTER_IP=$(yaml-quote ${MASTER_INTERNAL_IP})
-      MINION_IP=$(yaml-quote ${MINION_PRIVATE_IP})
-      KUBELET_TOKEN=$(yaml-quote ${KUBELET_TOKEN:-})
-      KUBE_PROXY_TOKEN=$(yaml-quote ${KUBE_PROXY_TOKEN:-})
-      KUBE_BEARER_TOKEN=$(yaml-quote ${KUBELET_TOKEN:-})
-      KUBERNETES_CONTAINER_RUNTIME=$(yaml-quote ${CONTAINER_RUNTIME})
-      RKT_VERSION=$(yaml-quote ${RKT_VERSION})
-EOF
+  cat "${KUBE_ROOT}/cluster/aws/coreos/node"
 }
 
 function check-minion() {
